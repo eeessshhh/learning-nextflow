@@ -1,9 +1,11 @@
 params.reads = "/home/eesha/my_pipelines/fastq_input_files/"
+params.transcriptome = "/home/eesha/my_pipelines/transcriptome_file/transcriptome.fa"
 params.outdir = "/home/eesha/my_pipelines/results"
 
-log.info """
+log.info """\
 
-reads: ${params.reads}
+reads:         ${params.reads}
+transcriptome: ${params.transcriptome}
 
 """
 
@@ -22,6 +24,22 @@ process fastqc {
     """
 }
 
+
+process index_transcriptome {
+
+  publishDir params.outdir, mode: "copy"   
+
+
+  output:
+    path 'index_file'
+
+  script:
+    """
+    echo "this works"
+    salmon index -t ${transcriptome} -i index_file
+    """
+
+}
 
 process multiqc {
   publishDir params.outdir, mode: "copy"   
@@ -42,7 +60,8 @@ process multiqc {
 workflow {
         ch_reads = Channel.fromPath("${params.reads}")
         ch_reads.view()
-	fastqc_results = fastqc(ch_reads)
+	      fastqc_results = fastqc(ch_reads)
         multiqc(fastqc_results)
-
+        index_transcriptome(params.transcriptome)
+        
 }
