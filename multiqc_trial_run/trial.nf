@@ -35,7 +35,6 @@ process index_transcriptome {
 
   script:
     """
-    echo "this works"
     salmon index -t ${transcriptome} -i index_file
     """
 
