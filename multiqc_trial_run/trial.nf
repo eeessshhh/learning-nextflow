@@ -29,7 +29,6 @@ process index_transcriptome {
 
   publishDir params.outdir, mode: "copy"   
 
-
   output:
     path 'index_file'
 
@@ -54,7 +53,6 @@ process multiqc {
     multiqc result -o multiqc_report .
     """
 }
-
 
 workflow {
         ch_reads = Channel.fromPath("${params.reads}")
