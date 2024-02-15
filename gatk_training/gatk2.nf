@@ -20,15 +20,15 @@ process indexing {
     path refgenome
 
   output:
-    path 'bwa_index'
+    path 'bwa_indexes'
 
   script:
     """
-    mkdir bwa_index
+    mkdir bwa_indexes
     bwa index ${refgenome} -p ${refgenome}
     samtools faidx ${refgenome}
-    samtools dict ${refgenome} -o ${refgenome}.dict
-    mv ${refgenome}* ./bwa_index
+    samtools dict ${refgenome} -o ${refgenome.baseName}.dict
+    mv ${refgenome}* ./bwa_indexes
     """
 }
 
@@ -37,31 +37,19 @@ process alignment {
   publishDir params.outdir, mode: "copy"
 
   input:
-    path bwa_index
+    path bwa_indexes
     path inputdir
     val sampleid
 
   output:
-    path 'align_results'
+    path 'alignment_results'
 
   script:
     """
-    mkdir align_results
-    bwa mem -M -R "@RG\\tID:${sampleid}_S1_L001\\tSM:${sampleid}_S1_L001" $bwa_index/chr7.fa ${inputdir}/${sampleid}_S1_L001_R1_001.fastq.gz ${inputdir}/${sampleid}_S1_L001_R2_001.fastq.gz | samtools sort -o sorted_${sampleid}.bam
-    mv sorted_${sampleid}* ./align_results
-    """
-  
-}
-
-process indexing_bam {
-  publishDir params.outdir, mode: "copy"
-
-  input:
-    path align_results
-
-  script:
-    """
-    samtools index $align_results/sorted_${params.sampleid}.bam
+    mkdir alignment_results
+    bwa mem -M -R "@RG\\tID:${sampleid}_S1_L001\\tSM:${sampleid}_S1_L001" $bwa_indexes/*.fa ${inputdir}/${sampleid}_S1_L001_R1_001.fastq.gz ${inputdir}/${sampleid}_S1_L001_R2_001.fastq.gz | samtools sort -o sorted_${sampleid}.bam
+    samtools index sorted_${params.sampleid}.bam
+    mv sorted_${params.sampleid}* ./alignment_results
     """
 }
 
@@ -69,28 +57,17 @@ process markdups {
   publishDir params.outdir, mode: "copy"
 
   input:
-    path align_results
+    path alignment_results
 
   output:
-    path 'dedup_results'
+    path 'dedup_result'
   
   script:
     """
-    mkdir dedup_results
-    gatk MarkDuplicates -I $align_results/sorted_${params.sampleid}.bam -O sorted_dedup_${params.sampleid}.bam -M sorted_dedup_metrics_${params.sampleid}.txt
-    mv sorted_dedup_* ./dedup_results
-    """
-}
-
-process indexing_dedup_bam {
-  publishDir params.outdir, mode: "copy"
-
-  input:
-    path dedup_results
-
-  script:
-    """
-    samtools index $dedup_results/sorted_dedup_${params.sampleid}.bam
+    mkdir dedup_result
+    gatk MarkDuplicates -I $alignment_results/sorted_${params.sampleid}.bam -O sorted_dedup_${params.sampleid}.bam -M sorted_dedup_metrics_${params.sampleid}.txt
+    samtools index sorted_dedup_${params.sampleid}.bam
+    mv sorted_dedup_* ./dedup_result
     """
 }
 
@@ -98,28 +75,18 @@ process readgroups {
   publishDir params.outdir, mode: "copy"
 
   input:
-    path dedup_results
+    path dedup_result
+    path vcf_file
 
   output:
-    path 'dedup2'
+    path 'dedup_result'
 
   script:
     """
-    mkdir dedup2
-    gatk AddOrReplaceReadGroups -I $dedup_results/sorted_dedup_${params.sampleid}.bam -O output_sorted_dedup_${params.sampleid}.bam -LB readgroup -PL illumina -PU ESWJFHU537GDFJK -SM Sample-4BC
-    mv output_sorted_dedup* ./dedup2 
-    """
-}
-
-process index_feature_file {
-  publishDir params.outdir, mode: "copy"
-
-  input:
-    path vcf_file
-  
-  script:
-    """
-    gatk IndexFeatureFile --input ${vcf_file}
+    gatk AddOrReplaceReadGroups -I $dedup_result/sorted_dedup_${params.sampleid}.bam -O rg_sorted_dedup_${params.sampleid}.bam -LB readgroup -PL illumina -PU ESWJFHU537GDFJK -SM Sample-4BC
+    mv rg_sorted_dedup* ./dedup_result
+    gatk IndexFeatureFile --input ${params.vcf_file}
+    mv known_sites* ./dedup_result
     """
 }
 
@@ -127,25 +94,25 @@ process baserecal {
   publishDir params.outdir, mode: "copy"
 
   input:
-    path dedup2
-    path bwa_index
+    path bwa_indexes
+    path dedup_result
+    path vcf_file
+
   output:
     path 'recal_report'
   script:
     """
     mkdir recal_report
-    gatk BaseRecalibrator -R $bwa_index/chr7.fa -I $dedup2/output_sorted_dedup_${params.sampleid}.bam --known-sites ${params.vcf_file} -O recal_report_${params.sampleid}.table
+    tree bwa_indexes > abc.txt
+    gatk BaseRecalibrator -R $bwa_indexes/chr7.fa -I $dedup_result/rg_sorted_dedup_${params.sampleid}.bam --known-sites ${params.vcf_file} -O recal_report_${params.sampleid}.table
     mv recal_report_* ./recal_report
     """
 }
 
 workflow {
-  var1 = indexing(params.refgenome)
-  var2 = alignment(var1, params.inputdir, params.sampleid)
-  indexing_bam(var2)
-  var3 = markdups(var2)
-  indexing_dedup_bam(var3)
-  var4 = readgroups(var3)
-  index_feature_file(params.vcf_file)
-  baserecal(var4, var1)
+  bwa_index_files = indexing(params.refgenome)
+  sorted_bam_file = alignment(bwa_index_files, params.inputdir, params.sampleid)
+  dedup_file = markdups(sorted_bam_file)
+  rg_sorted_file = readgroups(dedup_file, params.vcf_file)
+  baserecal(bwa_index_files, rg_sorted_file, params.vcf_file)
 }
