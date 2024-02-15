@@ -2,7 +2,7 @@ params.inputdir = "/home/eesha/my_pipelines/gatk_nxf_training/"
 params.refgenome = "/home/eesha/my_pipelines/gatk_nxf_training/chr7.fa"
 params.sampleid = "Sample-4BC-SDNA"
 params.outdir = "/home/eesha/my_pipelines/gatk_results/"
-params.vcf_file = "/home/eesha/my_pipelines/gatk_nxf_training/known_sites.vcf"
+
 
 process fastq_to_vcf {
 
