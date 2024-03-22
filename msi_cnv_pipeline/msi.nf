@@ -16,6 +16,8 @@ process msi_sensor {
 
   input:
     val sample_name
+    path microlist
+    path bam_file
 
   output:
     path 'result'
