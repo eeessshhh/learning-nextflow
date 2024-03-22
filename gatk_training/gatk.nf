@@ -8,7 +8,7 @@ log.info"""\
 refgenome: ${params.refgenome}
 outdir: ${params.outdir}
 inputdir: ${params.inputdir}
-sampleid: ${params.sampleid}
+sampleid: ${params.sampleigd}
 vcf_file: ${params.vcf_file}
 """
  
