@@ -25,7 +25,7 @@ process msi_sensor {
   script:
     """
     mkdir result
-    msi -b 30 -d home/eesha/msi_pipeline/micro.list -t home/eesha/msi_pipeline/sorted_Sample-4BC-SDNA.bam -o ./${sample_name}_msi
+    msi -b 30 -d ${params.microlist} -t ${params.bam_file} -o ./${sample_name}_msi
     mv *_msi .result
     """
 }
