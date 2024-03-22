@@ -38,6 +38,6 @@ process python_script {
 }
 
 workflow {
-    msi_sensor(params.sample_name)
+    msi_sensor(params.sample_name, params.microlist, params.bam_file)
     python_script()
 }
